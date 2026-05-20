@@ -2,8 +2,11 @@ pipeline {
     agent any
     
     environment {
+        // This tells Jenkins exactly how to talk to Docker Desktop
+        DOCKER_HOST = 'tcp://localhost:2375' 
+        
         DOCKERHUB_CREDENTIALS = 'docker-hub-credentials'
-        DOCKERHUB_USERNAME = 'your_actual_dockerhub_username_here' // Put your username back here!
+        DOCKERHUB_USERNAME = 'newin1809'
         IMAGE_NAME = "${DOCKERHUB_USERNAME}/kanban-board"
         TAG = "${BUILD_NUMBER}"
     }
@@ -18,7 +21,6 @@ pipeline {
         stage('Validate Syntax') {
             steps {
                 bat 'echo "Validating Dockerfile and Manifests..."'
-                // The "|| exit 0" prevents minor warnings from crashing the pipeline
                 bat 'docker run --rm -i hadolint/hadolint < Dockerfile || exit 0'
             }
         }
@@ -41,13 +43,9 @@ pipeline {
         
         stage('Deploy to Minikube') {
             steps {
-                // Windows PowerShell alternative to the Linux 'sed' command
                 bat "powershell -Command \"(Get-Content k8s/deployment.yaml) -replace 'DOCKERHUB_USERNAME', '${DOCKERHUB_USERNAME}' | Set-Content k8s/deployment.yaml\""
-                
                 bat "kubectl apply -f k8s/deployment.yaml -n kanban-prod"
                 bat "kubectl apply -f k8s/service.yaml -n kanban-prod"
-                
-                // Rollout validation
                 bat "kubectl rollout status deployment/kanban-deployment -n kanban-prod"
             }
         }
